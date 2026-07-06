@@ -49,19 +49,36 @@
   }
 
   function goToGoogleLogout() {
-    const continueUrl = encodeURIComponent(getContinueUrl());
-    window.location.href = 'https://accounts.google.com/Logout?continue=' + continueUrl;
+    if (window.google && google.accounts && google.accounts.id && google.accounts.id.disableAutoSelect) {
+      google.accounts.id.disableAutoSelect();
+    }
+    window.location.href = getContinueUrl() + '?logout=1';
   }
 
   function goToGoogleAccountChooser() {
-    const continueUrl = encodeURIComponent(getContinueUrl());
-    window.location.href = 'https://accounts.google.com/AccountChooser?continue=' + continueUrl;
+    if (window.google && google.accounts && google.accounts.id && google.accounts.id.disableAutoSelect) {
+      google.accounts.id.disableAutoSelect();
+    }
+    window.location.href = getContinueUrl() + '?switch=1';
   }
 
   function redirectToAppsScript(token) {
     const separator = config.APPS_SCRIPT_URL.indexOf('?') === -1 ? '?' : '&';
     const target = config.APPS_SCRIPT_URL + separator + 'token=' + encodeURIComponent(token);
     window.location.replace(target);
+  }
+
+  function getLoginMode() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('logout')) return 'logout';
+    if (params.has('switch')) return 'switch';
+    return '';
+  }
+
+  function cleanLoginUrl() {
+    if (window.location.search) {
+      window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+    }
   }
 
   function handleCredentialResponse(response) {
@@ -101,6 +118,11 @@
       return;
     }
 
+    const loginMode = getLoginMode();
+    if (loginMode && google.accounts.id.disableAutoSelect) {
+      google.accounts.id.disableAutoSelect();
+    }
+
     google.accounts.id.initialize({
       client_id: config.GOOGLE_CLIENT_ID,
       callback: handleCredentialResponse,
@@ -116,7 +138,15 @@
       width: 320
     });
 
-    setStatus('พร้อมเข้าสู่ระบบ', '');
+    if (loginMode === 'logout') {
+      setStatus('ออกจากระบบแล้ว หากต้องการใช้งานต่อกรุณาเข้าสู่ระบบใหม่', 'success');
+    } else if (loginMode === 'switch') {
+      setStatus('เลือกบัญชี Google ที่ต้องการเข้าสู่ระบบ', 'success');
+    } else {
+      setStatus('พร้อมเข้าสู่ระบบ', '');
+    }
+
+    cleanLoginUrl();
   }
 
   switchAccountBtn.addEventListener('click', goToGoogleAccountChooser);
