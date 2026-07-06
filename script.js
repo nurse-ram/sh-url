@@ -1,84 +1,113 @@
-(function(){
-  const cfg = window.RUNS_AUTH_CONFIG || {};
+(function () {
+  'use strict';
+
+  const config = window.RUNS_SHORT_URL_CONFIG || {};
   const statusText = document.getElementById('statusText');
-  const googleButton = document.getElementById('googleButton');
-  let isSubmitting = false;
-  let submitTimer = null;
+  const switchAccountBtn = document.getElementById('switchAccountBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
 
-  function setStatus(message, isError){
-    statusText.textContent = message || '';
-    statusText.classList.toggle('error', !!isError);
+  function setStatus(message, type) {
+    statusText.textContent = message;
+    statusText.className = 'status-text' + (type ? ' ' + type : '');
   }
 
-  function decodeJwt(token){
-    const payload = token.split('.')[1] || '';
-    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
-    return JSON.parse(decodeURIComponent(Array.from(json).map(c => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join('')));
+  function isConfigured() {
+    return config.GOOGLE_CLIENT_ID &&
+      !config.GOOGLE_CLIENT_ID.includes('PASTE_') &&
+      config.APPS_SCRIPT_URL &&
+      !config.APPS_SCRIPT_URL.includes('PASTE_');
   }
 
-  function handleCredential(response){
-    try{
-      if(isSubmitting) return;
-      const credential = response && response.credential;
-      if(!credential) throw new Error('ไม่พบข้อมูลยืนยันตัวตน');
-      const profile = decodeJwt(credential);
-      const email = String(profile.email || '').toLowerCase();
-      const domain = email.split('@')[1] || '';
-      if(domain !== cfg.ALLOWED_DOMAIN){
-        setStatus('บัญชีนี้ไม่ใช่ @' + cfg.ALLOWED_DOMAIN + ' ระบบจะให้ Apps Script ตรวจรายชื่อในชีต USERS ต่อ', false);
-      }else{
-        setStatus('ยืนยันบัญชี RUMAIL แล้ว กำลังเปิดระบบ...', false);
-      }
-      submitToken(credential);
-    }catch(err){
-      setStatus(err.message || String(err), true);
+  function decodeJwtPayload(token) {
+    try {
+      const payload = token.split('.')[1];
+      const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const json = decodeURIComponent(atob(base64).split('').map(function (char) {
+        return '%' + ('00' + char.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(json);
+    } catch (error) {
+      return null;
     }
   }
 
-  function submitToken(credential){
-    isSubmitting = true;
-    setLoginBusy(true);
-    submitTimer = setTimeout(() => {
-      setStatus('กำลังเปิดระบบ หากหน้านี้ค้างนานเกินไปให้รีเฟรชแล้วเข้าสู่ระบบใหม่', true);
-      setLoginBusy(false);
-      isSubmitting = false;
-    }, 15000);
-
-    const joiner = cfg.APPS_SCRIPT_URL.indexOf('?') >= 0 ? '&' : '?';
-    window.location.replace(cfg.APPS_SCRIPT_URL + joiner + 'token=' + encodeURIComponent(credential));
+  function getContinueUrl() {
+    return window.location.origin + window.location.pathname;
   }
 
-  function setLoginBusy(busy){
-    if(!googleButton) return;
-    googleButton.classList.toggle('is-busy', busy);
-    googleButton.style.pointerEvents = busy ? 'none' : '';
-    googleButton.setAttribute('aria-busy', busy ? 'true' : 'false');
+  function goToGoogleLogout() {
+    const continueUrl = encodeURIComponent(getContinueUrl());
+    window.location.href = 'https://accounts.google.com/Logout?continue=' + continueUrl;
   }
 
-  window.addEventListener('load', () => {
-    if(!cfg.GOOGLE_CLIENT_ID || cfg.GOOGLE_CLIENT_ID.indexOf('PASTE_') === 0){
-      setStatus('กรุณาใส่ GOOGLE_CLIENT_ID ใน config.js ก่อนใช้งาน', true);
+  function goToGoogleAccountChooser() {
+    const continueUrl = encodeURIComponent(getContinueUrl());
+    window.location.href = 'https://accounts.google.com/AccountChooser?continue=' + continueUrl;
+  }
+
+  function redirectToAppsScript(token) {
+    const separator = config.APPS_SCRIPT_URL.indexOf('?') === -1 ? '?' : '&';
+    const target = config.APPS_SCRIPT_URL + separator + 'token=' + encodeURIComponent(token);
+    window.location.replace(target);
+  }
+
+  function handleCredentialResponse(response) {
+    const token = response && response.credential;
+    if (!token) {
+      setStatus('ไม่พบ token จาก Google กรุณาลองเข้าสู่ระบบใหม่', 'error');
       return;
     }
-    if(!window.google || !google.accounts || !google.accounts.id){
-      setStatus('โหลด Google Sign-In ไม่สำเร็จ กรุณารีเฟรชหน้าอีกครั้ง', true);
+
+    const payload = decodeJwtPayload(token);
+    if (!payload || !payload.email) {
+      setStatus('อ่านข้อมูลอีเมลจาก Google token ไม่ได้', 'error');
       return;
     }
+
+    const email = String(payload.email).toLowerCase();
+    const domain = '@' + String(config.ALLOWED_DOMAIN || 'rumail.ru.ac.th').toLowerCase();
+
+    if (email.endsWith(domain)) {
+      setStatus('ยืนยันโดเมนสำเร็จ กำลังเข้าสู่ระบบ...', 'success');
+    } else {
+      setStatus('กำลังส่งต่อเพื่อตรวจสิทธิ์จากชีต USERS...', 'success');
+    }
+
+    redirectToAppsScript(token);
+  }
+
+  function initGoogleButton() {
+    if (!isConfigured()) {
+      setStatus('กรุณาตั้งค่า GOOGLE_CLIENT_ID และ APPS_SCRIPT_URL ใน config.js ก่อนใช้งาน', 'error');
+      return;
+    }
+
+    if (!window.google || !google.accounts || !google.accounts.id) {
+      setStatus('กำลังโหลด Google Identity Services...', '');
+      window.setTimeout(initGoogleButton, 250);
+      return;
+    }
+
     google.accounts.id.initialize({
-      client_id: cfg.GOOGLE_CLIENT_ID,
-      callback: handleCredential,
+      client_id: config.GOOGLE_CLIENT_ID,
+      callback: handleCredentialResponse,
       auto_select: false,
-      cancel_on_tap_outside: true
+      cancel_on_tap_outside: false
     });
-    const slotWidth = Math.floor(googleButton.getBoundingClientRect().width || (window.innerWidth - 56));
-    const buttonWidth = Math.min(340, Math.max(200, slotWidth));
-    google.accounts.id.renderButton(googleButton, {
-      type: 'standard',
-      theme: 'filled_blue',
+
+    google.accounts.id.renderButton(document.getElementById('googleButton'), {
+      theme: 'outline',
       size: 'large',
       text: 'signin_with',
-      shape: 'rectangular',
-      width: buttonWidth
+      shape: 'pill',
+      width: 320
     });
-  });
+
+    setStatus('พร้อมเข้าสู่ระบบ', '');
+  }
+
+  switchAccountBtn.addEventListener('click', goToGoogleAccountChooser);
+  logoutBtn.addEventListener('click', goToGoogleLogout);
+
+  initGoogleButton();
 })();

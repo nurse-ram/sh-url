@@ -1,34 +1,41 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>RUNS Short URL Gateway</title>
-  <link rel="icon" href="favicon.ico">
-  <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="referrer" content="no-referrer" />
+  <title>RUNS Short URL Login</title>
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="style.css" />
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="config.js"></script>
 </head>
 <body>
-  <main class="gateway">
-    <section class="hero">
-      <div class="logo-box"><img src="logo.png" alt="RUNS" onerror="this.style.display='none'"></div>
-      <h1><span>RUNS</span> <strong>URL Shortener</strong></h1>
-    </section>
-
-    <section class="panel">
-      <div class="panel-head">
-        <h2>เข้าสู่ระบบจัดการลิงก์</h2>
+  <main class="login-page">
+    <section class="login-card" aria-labelledby="loginTitle">
+      <div class="brand">
+        <img src="logo.png" alt="RUNS logo" class="brand-logo" />
+        <div>
+          <p class="eyebrow">Ramkhamhaeng University</p>
+          <h1 id="loginTitle">RUNS Short URL</h1>
+          <p class="subtitle">ระบบยืนยันตัวตนก่อนเข้าสู่ระบบจัดการลิงก์สั้นและ QR Code</p>
+        </div>
       </div>
-      <div id="googleButton" class="google-slot"></div>
-      <p class="hint">อนุญาตเฉพาะบัญชี @rumail.ru.ac.th หรือบัญชีที่มีรายชื่อเท่านั้น</p>
-      <p class="status" id="statusText"></p>
+
+      <div class="notice">
+        <strong>เข้าสู่ระบบด้วย Google</strong>
+        <span>รองรับอีเมล <code>@rumail.ru.ac.th</code> และอีเมลภายนอกที่มีรายชื่อ ACTIVE ในชีต USERS</span>
+      </div>
+
+      <div id="googleButton" class="google-button" aria-live="polite"></div>
+      <p id="statusText" class="status-text">กำลังเตรียมปุ่มเข้าสู่ระบบ...</p>
+
+      <div class="account-links">
+        <button type="button" id="switchAccountBtn" class="text-button">สลับบัญชี Google</button>
+        <button type="button" id="logoutBtn" class="text-button">ออกจากบัญชี Google</button>
+      </div>
     </section>
   </main>
-
-  <footer class="footer">
-    <span>© 2026 Siyahorn.p┃Faculty of Nursing, Ramkhamhaeng University. All Rights Reserved.</span>
-  </footer>
 
   <script src="script.js"></script>
 </body>
