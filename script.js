@@ -35,6 +35,19 @@
     return window.location.origin + window.location.pathname;
   }
 
+  function getShortCodeFromPath() {
+    const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
+    if (!path || path === 'index.html') return '';
+    if (path.indexOf('/') > -1) return '';
+    return /^[A-Za-z0-9_-]{1,64}$/.test(path) ? path : '';
+  }
+
+  function redirectShortCode(code) {
+    const separator = config.APPS_SCRIPT_URL.indexOf('?') === -1 ? '?' : '&';
+    const target = config.APPS_SCRIPT_URL + separator + 'action=resolve&code=' + encodeURIComponent(code);
+    window.location.replace(target);
+  }
+
   function goToGoogleLogout() {
     const continueUrl = encodeURIComponent(getContinueUrl());
     window.location.href = 'https://accounts.google.com/Logout?continue=' + continueUrl;
@@ -108,6 +121,13 @@
 
   switchAccountBtn.addEventListener('click', goToGoogleAccountChooser);
   logoutBtn.addEventListener('click', goToGoogleLogout);
+
+  const shortCode = getShortCodeFromPath();
+  if (shortCode) {
+    setStatus('กำลังเปิดลิงก์ปลายทาง...', 'success');
+    redirectShortCode(shortCode);
+    return;
+  }
 
   initGoogleButton();
 })();
